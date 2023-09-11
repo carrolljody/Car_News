@@ -13,12 +13,15 @@ import kotlin.coroutines.CoroutineContext
 class WebScraper : CoroutineScope {
 
     private val job = Job()
+    data class CarListing(val name: String, val price: String, val url: String)
+    val carListings = mutableListOf<CarListing>()
+
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.IO + job
 
-    private var scrapingCompleteListener: ((String) -> Unit)? = null
+    var scrapingCompleteListener: ((List<CarListing>) -> Unit)? = null
 
-    fun setOnScrapingCompleteListener(listener: (String) -> Unit) {
+    fun setOnScrapingCompleteListener(listener: (List<CarListing>)  -> Unit) {
         scrapingCompleteListener = listener
     }
 
@@ -35,14 +38,30 @@ class WebScraper : CoroutineScope {
         }
     }
 
-    private suspend fun fetchData(url: String): String {
-        return try {
+    private suspend fun fetchData(url: String): List<CarListing> {
+        val carListings = mutableListOf<CarListing>()
+
+        try {
             val doc: Document = Jsoup.connect(url).get()
-            // Parse and process the HTML using Jsoup as needed
-            val title = doc.title()
-            title // Return the scraped data
+
+            // Extract data for each car listing
+            val listingElements = doc.select("a.listing-heading")
+            val priceElements = doc.select("div.col-xs-3.listing-price")
+
+            for (i in listingElements.indices) {
+                val carNameElement = listingElements[i]
+                val carName = carNameElement.text()
+                val carUrl = carNameElement.attr("href")
+
+                val price = priceElements[i].text()
+                val carListing = CarListing(carName, price, carUrl)
+                carListings.add(carListing)
+            }
+
         } catch (e: Exception) {
-            "Error: Unable to scrape data"
+            e.printStackTrace()
         }
+
+        return carListings
     }
 }
